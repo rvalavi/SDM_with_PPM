@@ -1,37 +1,34 @@
 ---
 title: "Species distribution modelling with Poisson point processes"
 author: "Ian Flint and Roozbeh Valavi"
-date: "18/12/2019"
-output:
-  html_document:
-    code_folding: show
-    depth: 3
-    number_sections: no
-    theme: yeti
-    toc: yes
-    toc_float: yes
-  pdf_document:
-    toc: yes
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    fig_caption: yes
+vignette: >
+  %\VignetteIndexEntry{Species distribution modelling with Poisson point processes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts=list(width.cutoff=80), fig.align="center", message = FALSE, warning = FALSE, fig.height=5, fig.width=5)
 ```
 
-# Species distribution modelling
+## Species distribution modelling
 
 
 ## Envrionmental data
 
 ```{r}
+# library(maptools)
 library(raster)
-library(maptools)
 library(sf)
 
 grid_dir <- "data/grids"
 vars <- list.files(grid_dir, pattern = ".tif$", full.names = TRUE)
 
-# the border
+# the border shapefile
 ibra <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
 
 # read the raster layers as a raster stack
@@ -39,36 +36,30 @@ nsw_stack <- stack(vars)
 # set the coordinate system
 crs(nsw_stack) <- CRS("+init=epsg:4283")
 
-# crop the to the area
-nsw_stack <- nsw_stack %>% 
-  crop(ibra) %>% 
-  mask(ibra)
-
 plot(nsw_stack)
-
 
 ```
 
 ## Species data
-The species data comes form Fithian et al., (2015).
+The species data comes form Fithian and others (2015).
 
 All the species starts with `euca` ...
 
 ```{r}
-# load Fithian et al., species data
+# load Fithian et al (2015) species data
 load("data/moddat.RData")
 
-str(eucacine_moddat)
+head(eucacine_moddat)
 
 plot(nsw_stack[[1]])
 points(eucacine_moddat$long, eucacine_moddat$lat)
 ```
 
 
-## Maxent modelling
+## Modelling with Maxent
 
 
-## Point Process modelling
+## Modelling with Poisson point processes
 
 
 ## Comparing the results
