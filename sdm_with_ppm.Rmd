@@ -1,0 +1,76 @@
+---
+title: "Species distribution modelling with Poisson point processes"
+author: "Ian Flint and Roozbeh Valavi"
+date: "18/12/2019"
+output:
+  html_document:
+    code_folding: show
+    depth: 3
+    number_sections: no
+    theme: yeti
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Species distribution modelling
+
+
+## Envrionmental data
+
+```{r}
+library(raster)
+library(maptools)
+library(sf)
+
+grid_dir <- "data/grids"
+vars <- list.files(grid_dir, pattern = ".tif$", full.names = TRUE)
+
+# the border
+ibra <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
+
+# read the raster layers as a raster stack
+nsw_stack <- stack(vars)
+# set the coordinate system
+crs(nsw_stack) <- CRS("+init=epsg:4283")
+
+# crop the to the area
+nsw_stack <- nsw_stack %>% 
+  crop(ibra) %>% 
+  mask(ibra)
+
+plot(nsw_stack)
+
+
+```
+
+## Species data
+The species data comes form Fithian et al., (2015).
+
+All the species starts with `euca` ...
+
+```{r}
+# load Fithian et al., species data
+load("data/moddat.RData")
+
+str(eucacine_moddat)
+
+plot(nsw_stack[[1]])
+points(eucacine_moddat$long, eucacine_moddat$lat)
+```
+
+
+## Maxent modelling
+
+
+## Point Process modelling
+
+
+## Comparing the results
+
+
