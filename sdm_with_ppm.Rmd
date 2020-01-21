@@ -17,8 +17,13 @@ knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts=list(width.cutoff=80),
 
 ## Species distribution modelling
 
+Species distribution modelling is...
+
+
+The example data used in this tutorial comes form Fithian and others (2015).
 
 ## Envrionmental data
+
 
 ```{r}
 # library(maptools)
@@ -35,8 +40,8 @@ ibra <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
 nsw_stack <- stack(vars)
 # set the coordinate system
 crs(nsw_stack) <- CRS("+init=epsg:4283")
-
-plot(nsw_stack)
+# you can plot them by:
+# plot(nsw_stack)
 
 ```
 
@@ -49,14 +54,93 @@ All the species starts with `euca` ...
 # load Fithian et al (2015) species data
 load("data/moddat.RData")
 
-head(eucacine_moddat)
+# show few rows and column in the species dataset
+eucacine_moddat[1:5, 1:8]
 
+# plot the sapecies on the raster map
 plot(nsw_stack[[1]])
 points(eucacine_moddat$long, eucacine_moddat$lat)
 ```
 
 
 ## Modelling with Maxent
+
+Here we use `maxnet` package, the open-source version of `Maxent` in R. 
+
+```{r}
+# load the libraries
+library(maxnet)
+library(dismo) # for generating random points
+
+```
+
+Sampling random background from the landscape...
+
+For the purpose of this tutorial, we random
+
+```{r}
+# generate some random samples
+rnd <- randomPoints(nsw_stack, n = 10000)
+
+# extracting the values of points
+background <- raster::extract(nsw_stack, rnd)
+head(background)
+
+# check for any NA in the extracted values
+anyNA(background)
+
+# remove the NA values
+background <- na.omit(background)
+
+```
+
+As the values in the presence data is already extracted, we just merge the data to make it ready for model fitting. Here, I make a `daata.frame` with only the covariates that is going to be used in model fitting.
+
+```{r}
+# subset the covariate in species data by raster
+prcov <- eucacine_moddat[, names(nsw_stack)]
+
+# now add them together
+covariates <- rbind(prcov, background)
+
+```
+
+Now we can use this for model fitting...
+the parameters...
+
+Here, we need to make a voctor of 1s and 0s (for presence and background points respectively). This shoudl be with the same order as the covariate data is provided.
+
+```{r fig.height=6.5, fig.width=7}
+# make the presence and background points
+# presnece (1s) and background (0s)
+# the order should be the same as the order in the covariates
+presences <- c(rep(1, nrow(eucacine_moddat)), 
+               rep(0, nrow(background)))
+
+tmp <- Sys.time()
+mxnet <- maxnet(p = presences,
+                data = covariates,
+                regmult = 1, # regularisation multiplier
+                maxnet.formula(presences, covariates, classes = "lqph"))
+Sys.time() - tmp
+
+# plot the fitted function
+plot(mxnet, type = "cloglog")
+
+```
+
+### Pridicting on rasters
+
+To predict this model on rasters, you need a `RasterStack` with all the covariates used in model fitting. The names of the covariates in the `RasterStack` must be exactly the same. This is done through `raster` package (already loaded with `dismo` pcakage).
+
+There are different options for scaling the raw output of `maxnet` including the **link**, **exponential**, **logistic** and recently introduced **cloglog**. For more information about these option please read Phillips et al. (2017).
+
+```{r}
+max_pred <- raster::predict(object = nsw_stack, model = mxnet, type = "cloglog")
+# plot the prediction
+plot(max_pred)
+
+```
 
 
 ## Modelling with Poisson point processes
