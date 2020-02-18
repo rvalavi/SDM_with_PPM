@@ -3,8 +3,7 @@ title: "Species distribution modelling with Poisson point processes"
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 
-  rmarkdown::html_vignette:
-    fig_caption: yes
+  pdf_document
 vignette: >
   %\VignetteIndexEntry{Species distribution modelling with Poisson point processes}
   %\VignetteEngine{knitr::rmarkdown}
@@ -13,6 +12,8 @@ vignette: >
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts=list(width.cutoff=80), fig.align="center", message = FALSE, warning = FALSE, fig.height=5, fig.width=5)
+
+set.seed(42)
 ```
 
 ## Species distribution modelling
@@ -59,8 +60,122 @@ points(eucacine_moddat$long, eucacine_moddat$lat)
 ## Modelling with Maxent
 
 
-## Modelling with Poisson point processes
+## Modelling with point processes
 
+The `spatstat` package is the most widely used to work with point processes.
+Covariates are usually specified in their image objects `spatstat::im`.
+Internally, this is represented as a large pixel matrix, so conversion from rasters and other image objects is usually straightforward.
+
+```{r}
+library(spatstat)
+
+covariates <- lapply(as.list(nsw_stack), function(element) maptools::as.im.RasterLayer(element))
+names(covariates) <- names(nsw_stack)
+```
+
+Spatstat also needs to be told what the observation region is.
+The required object type is `spatstat::owin`.
+Common ways to construct an `owin` is to either take a fixed rectangle, i.e. `window <- owin(c(0, 100), c(0, 100))`, or to use an existing covariate or raster to construct the window.
+The latter technique is what we will use here.
+
+Although it would be possible to do `window <- spatstat::as.owin(covariates[[1]])`, it will be easier to work on a window with a lower resolution, as shown next.
+
+```{r}
+window <- spatstat::as.owin(as.mask(covariates[[1]], eps = 0.01))
+```
+
+Locations of individuals are represented via a point pattern object `spatstat::ppp`, and consist in coordinates along with a window in which the species has been observed.
+
+```{r}
+configuration <- spatstat::ppp(x = eucacine_moddat$long, y = eucacine_moddat$lat, window = window)
+```
+
+Point patterns can easily be plotted.
+
+```{r}
+plot(configuration)
+```
+
+It is usually a good idea to start by a ``static'' analysis of the point pattern, without yet involving covariates.
+
+```{r}
+summary(configuration)
+plot(spatstat::density.ppp(configuration))
+plot(spatstat::Kest(configuration))
+# The line below takes 3 min to execute and is not crucial to the analysis.
+# plot(spatstat::envelope(configuration,Kest))
+```
+
+Doing inference on the point pattern is just as easy as setting up a `glm` regression.
+Start by writing the formula, essentially `formula <- "configuration ~ covariates`
+
+```{r}
+formula <- paste0("configuration ~ ", paste0(names(covariates), collapse = " + "))
+print(formula)
+```
+
+The fitting function (analogue of `glm`) is `spatstat::ppm` and is used as follows.
+
+```{r}
+fit <- spatstat::ppm(as.formula(formula), covariates = covariates)
+```
+
+The fitted regression is manipulated in the same way as a `glm` fit is, so for example you can have a look at the summary
+
+```{r}
+summary(fit)
+```
+
+or do an ANOVA.
+
+```{r}
+formula_without_bc04 <- paste0("configuration ~ ", paste0(names(covariates)[-2], collapse = " + "))
+fit_without_bc04 <- spatstat::ppm(as.formula(formula_without_bc04), covariates = covariates)
+anova(fit, fit_without_bc04)
+```
+
+To look at the predicted intensity, you use the `spatstat::predict.ppm` function.
+
+```{r}
+pred <- spatstat::predict.ppm(fit, covariates = covariates)
+plot(pred)
+```
+
+Spatstat can handle many different types of correlation structures between individuals of the species.
+You would usually supply an `interaction` parameter to `spatstat::ppm``.
+However, initial analysis suggested attraction between the individuals, in which case a doubly-stochastic (Cox) point process is more appropriate.
+Fitting such point processes uses another function, as shown below.
+
+```{r}
+fit_cox <- spatstat::kppm(as.formula(formula), covariates = covariates, clusters = "LGCP")
+summary(fit_cox)
+```
+
+A nice way to appreciate the difference in the underlying model is to draw from the fitted distribution.
+This can easily be done for the fitted Poisson point process.
+
+```{r}
+draw_ppp <- spatstat::simulate.ppm(fit)
+plot(draw_ppp)
+```
+
+Drawing from a Cox point process requires you to use another library, but it essentially works in the same way.
+
+```{r}
+library(RandomFields)
+library(RandomFieldsUtils)
+
+draw_cox <- spatstat::simulate.kppm(fit_cox)
+plot(draw_cox)
+```
+
+Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`.
+A lot of these functions rely on multiple simulations of the point process, which is going to be exeedingly slow for the Cox process.
+Instead, we show what a goodness-of-fit test looks like with a simple fit with a Poisson point process.
+
+```{r}
+dclf.test(fit)
+```
 
 ## Comparing the results
 
