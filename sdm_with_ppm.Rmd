@@ -29,13 +29,9 @@ The example data used in this tutorial comes form Fithian and others (2015).
 ```{r}
 # library(maptools)
 library(raster)
-library(sf)
 
 grid_dir <- "data/grids"
 vars <- list.files(grid_dir, pattern = ".tif$", full.names = TRUE)
-
-# the border shapefile
-ibra <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
 
 # read the raster layers as a raster stack
 nsw_stack <- stack(vars)
@@ -126,7 +122,7 @@ mxnet <- maxnet(p = presences,
 Sys.time() - tmp
 
 # plot the fitted function
-plot(mxnet, type = "cloglog")
+# plot(mxnet, type = "cloglog")
 
 ```
 
@@ -142,6 +138,32 @@ max_pred <- raster::predict(object = nsw_stack, model = mxnet, type = "cloglog")
 plot(max_pred)
 
 ```
+
+### Bias Correction
+
+Creating a map of distance to the towns to correct for biases in the data.
+
+```{r}
+library(sf)
+
+# the border shapefile
+border <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
+# reading the town point data
+towns <- st_read("data/towns/ecologist_towns.shp")
+
+plot(nsw_stack[[1]], main = "Towns in the region")
+plot(st_geometry(towns), add = TRUE)
+
+```
+
+```{r}
+distmap <- distanceFromPoints(nsw_stack[[1]], towns) # this may take some time
+distmap <- mask(distmap, mask = border) # crop base on the region
+
+plot(distmap)
+points(eucacine_moddat$long, eucacine_moddat$lat)
+```
+
 
 
 ## Modelling with point processes
