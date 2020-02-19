@@ -34,9 +34,13 @@ grid_dir <- "data/grids"
 vars <- list.files(grid_dir, pattern = ".tif$", full.names = TRUE)
 
 # read the raster layers as a raster stack
-nsw_stack <- stack(vars)
-# set the coordinate system
-crs(nsw_stack) <- CRS("+init=epsg:4283")
+r <- stack(vars)
+# set the coordinate system to mercator / geographic coordinates
+# the epsg code for geographic coordinates system is 4326
+crs(r) <- CRS("+init=epsg:4283")
+# transfer a metric coordinate system, here UTM South zone 56 is suitable
+# the epsg code for this crs is 32756
+nsw_stack <- projectRaster(r, crs = CRS("+init=epsg:32756"))
 # you can plot them by:
 # plot(nsw_stack)
 
@@ -48,15 +52,21 @@ The species data comes form Fithian and others (2015).
 All the species starts with `euca` ...
 
 ```{r}
+library(sf)
+
 # load Fithian et al (2015) species data
 load("data/moddat.RData")
 
 # show few rows and column in the species dataset
 eucacine_moddat[1:5, 1:8]
 
+# convert the data.frame to sf and convert the crs to UTM
+eucacine_moddat <- eucacine_moddat %>% 
+  st_as_sf(coords = c("long", "lat"), crs = 4326) %>%
+  st_transform(crs = 32756)
 # plot the sapecies on the raster map
 plot(nsw_stack[[1]])
-points(eucacine_moddat$long, eucacine_moddat$lat)
+plot(st_geometry(eucacine_moddat), add = TRUE) # add only the locations/geometry
 ```
 
 
