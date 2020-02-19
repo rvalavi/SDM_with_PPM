@@ -1,5 +1,6 @@
 ---
 title: "Species distribution modelling with Poisson point processes"
+subtitle: "The Quantitative & Applied Ecology Group (QAECO), The University of Melbourne"
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 
