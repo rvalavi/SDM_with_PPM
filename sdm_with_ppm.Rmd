@@ -26,54 +26,44 @@ The example data used in this tutorial comes form Fithian and others (2015).
 
 ## Envrionmental data
 
+The environmental data are a series of climatic and topographic variables. We already transferred the coordinate reference system (CRS) of all the input data from geographic CRS to a metric system (UTM zone 56, south). So, the unit of the maps is metre.
+
 
 ```{r}
 # library(maptools)
 library(raster)
 
-grid_dir <- "data/grids"
+grid_dir <- "data/grids_utm"
 vars <- list.files(grid_dir, pattern = ".tif$", full.names = TRUE)
 
 # read the raster layers as a raster stack
-r <- stack(vars)
-# set the coordinate system to mercator / geographic coordinates
-# the epsg code for geographic coordinates system is 4326
-crs(r) <- CRS("+init=epsg:4283")
-# transfer a metric coordinate system, here UTM South zone 56 is suitable
-# the epsg code for this crs is 32756
-nsw_stack <- projectRaster(r, crs = CRS("+init=epsg:32756"))
+nsw_stack <- stack(vars)
+
 # you can plot them by:
 # plot(nsw_stack)
 
 ```
 
 ## Species data
-The species data comes form Fithian and others (2015).
 
-All the species starts with `euca` ...
+The species presence-only data consists of 36 eucalypt species in south-eastern Australia. We use an example species to fit `MaxNet` and `PPM` models. As documented in Fithian et al. (2015), the species data has a bias towards cities and towns, especially toward Sydney, the biggest city in the study area. The rest of the species is used to generate Target Group Background (TGB) samples to be used as one way to account for the sampling bias in the presence-only species data in MaxNet.
 
 ```{r}
-library(sf)
+# reading species occurrence data
+occ <- read.csv("data/species/eucablax.csv")
+str(occ)
 
-# load Fithian et al (2015) species data
-load("data/moddat.RData")
-
-# show few rows and column in the species dataset
-eucacine_moddat[1:5, 1:8]
-
-# convert the data.frame to sf and convert the crs to UTM
-eucacine_moddat <- eucacine_moddat %>% 
-  st_as_sf(coords = c("long", "lat"), crs = 4326) %>%
-  st_transform(crs = 32756)
 # plot the sapecies on the raster map
 plot(nsw_stack[[1]])
-plot(st_geometry(eucacine_moddat), add = TRUE) # add only the locations/geometry
+points(occ$X, occ$Y)
 ```
 
 
 ## Modelling with Maxent
 
-Here we use `maxnet` package, the open-source version of `Maxent` in R. 
+Maxent is a very popular tool for modelling species occurrence data. Maxent was first developed as a stand-alone Java programme and later a wrapper function was implemented in the `dismo` package to fit SDMs with Maxent in R programming.
+Here we use `maxnet` package, the open-source version of `Maxent` in R, newly developed by Phillips *et al.,* (2017) to model species distributions from occurrences and environmental variables, using `glmnet` for model fitting.
+
 
 ```{r}
 # load the libraries
@@ -82,15 +72,18 @@ library(dismo) # for generating random points
 
 ```
 
-Sampling random background from the landscape...
+For model fitting with maxnet, we need a vector of presence and background data (with 0 indicating backgrounds and 1 indicating presences) and a `data.frame` of the environmental covariates.
+    
+First, we need to get the background samples. The background samples are typically selected randomly from the landscape. The number of samples should high enough to represent the environmental variability in the landscape of interest. Based on the convention, 10,000 random background is commonly used for model fitting with background, However, evidence were provided in the literature related to spatial point processes that this number is not enough. Here we have `r length(which(!is.na(values(nsw_stack[[1]]))))` number of non-NA pixels in our landscape, so clearly the 10,000 is not enough. Although, for the purpose of this tutorial, we limit the number of background here to speeds up the computation.
 
-For the purpose of this tutorial, we random
+After generating the random bacground samples, we need to extract the values of environmental variables. This will be a `data.frame` that later will be used in model fitting.
+
 
 ```{r}
 # generate some random samples
-rnd <- randomPoints(nsw_stack, n = 10000)
+rnd <- randomPoints(nsw_stack, n = 25000)
 
-# extracting the values of points
+# extracting the values of rasters for the background points
 background <- raster::extract(nsw_stack, rnd)
 head(background)
 
@@ -102,27 +95,23 @@ background <- na.omit(background)
 
 ```
 
-As the values in the presence data is already extracted, we just merge the data to make it ready for model fitting. Here, I make a `daata.frame` with only the covariates that is going to be used in model fitting.
+The values of the environmental variable for the species occurrences also need to be extracted. Then the covariates of the presence and background should be combined in a single `data.frame`.
 
 ```{r}
 # subset the covariate in species data by raster
-prcov <- eucacine_moddat[, names(nsw_stack)]
-
+occ_env <- raster::extract(nsw_stack, occ[,c("X", "Y")])
 # now add them together
-covariates <- rbind(prcov, background)
-
+covariates <- as.data.frame(rbind(occ_env, background))
+head(covariates)
 ```
 
-Now we can use this for model fitting...
-the parameters...
-
-Here, we need to make a voctor of 1s and 0s (for presence and background points respectively). This shoudl be with the same order as the covariate data is provided.
+Here, we need to make a voctor of 1s and 0s. This should be with the same order as the covariate data is provided.
 
 ```{r fig.height=6.5, fig.width=7}
 # make the presence and background points
 # presnece (1s) and background (0s)
 # the order should be the same as the order in the covariates
-presences <- c(rep(1, nrow(eucacine_moddat)), 
+presences <- c(rep(1, nrow(occ)), 
                rep(0, nrow(background)))
 
 tmp <- Sys.time()
@@ -141,10 +130,13 @@ Sys.time() - tmp
 
 To predict this model on rasters, you need a `RasterStack` with all the covariates used in model fitting. The names of the covariates in the `RasterStack` must be exactly the same. This is done through `raster` package (already loaded with `dismo` pcakage).
 
-There are different options for scaling the raw output of `maxnet` including the **link**, **exponential**, **logistic** and recently introduced **cloglog**. For more information about these option please read Phillips et al. (2017).
+There are different options for scaling the raw output of `maxnet` including the **link**, **exponential**, **logistic** and recently introduced **cloglog**. For more information about these option please read Phillips et al. (2017). To show a progress bar use `progress = "text"`.
 
 ```{r}
+tmp <- Sys.time()
 max_pred <- raster::predict(object = nsw_stack, model = mxnet, type = "cloglog")
+Sys.time() - tmp
+
 # plot the prediction
 plot(max_pred)
 
@@ -158,9 +150,9 @@ Creating a map of distance to the towns to correct for biases in the data.
 library(sf)
 
 # the border shapefile
-border <- st_read("data/ibraone.shp", crs = 4283, quiet = TRUE)
+border <- st_read("data/border/ibraone.shp", quiet = TRUE)
 # reading the town point data
-towns <- st_read("data/towns/ecologist_towns.shp")
+towns <- st_read("data/towns/towns.shp")
 
 plot(nsw_stack[[1]], main = "Towns in the region")
 plot(st_geometry(towns), add = TRUE)
@@ -172,7 +164,7 @@ distmap <- distanceFromPoints(nsw_stack[[1]], towns) # this may take some time
 distmap <- mask(distmap, mask = border) # crop base on the region
 
 plot(distmap)
-points(eucacine_moddat$long, eucacine_moddat$lat)
+points(occ$X, occ$Y)
 ```
 
 
@@ -198,13 +190,13 @@ The latter technique is what we will use here.
 Although it would be possible to do `window <- spatstat::as.owin(covariates[[1]])`, it will be easier to work on a window with a lower resolution, as shown next.
 
 ```{r}
-window <- spatstat::as.owin(as.mask(covariates[[1]], eps = 0.01))
+window <- spatstat::as.owin(as.mask(covariates[[1]], eps = 100))
 ```
 
 Locations of individuals are represented via a point pattern object `spatstat::ppp`, and consist in coordinates along with a window in which the species has been observed.
 
 ```{r}
-configuration <- spatstat::ppp(x = eucacine_moddat$long, y = eucacine_moddat$lat, window = window)
+configuration <- spatstat::ppp(x = occ$X, y = occ$Y, window = window)
 ```
 
 Point patterns can easily be plotted.
