@@ -1,0 +1,188 @@
+---
+title: "Species distribution modelling with Poisson point processes"
+subtitle: "The Quantitative & Applied Ecology Group (QAECO), The University of Melbourne"
+author: "Ian Flint and Roozbeh Valavi"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document
+vignette: >
+  %\VignetteIndexEntry{Species distribution modelling with Poisson point processes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+always_allow_html: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 80), fig.align="center", message = FALSE, warning = FALSE, fig.height = 5, fig.width = 5)
+
+set.seed(1)
+```
+
+## Species data
+
+We begin by loading the data containing recorded occurrences of koalas.
+
+```{r}
+suppressMessages(library(spocc))
+occurrences <- spocc::occ(query = "Phascolarctos cinereus", 
+                          from = "gbif",
+                          date = c("2010-01-01", "2020-12-31"),
+                          gbifopts = list(country = "AU"),
+                          has_coords = TRUE, 
+                          limit = 1e4)
+
+df <- occ2df(occurrences)
+
+summary(df)
+```
+
+The locations are shown below.
+
+```{r}
+suppressMessages(library(sp))
+dpts <- sp::SpatialPoints(df[, c("longitude", "latitude")], proj4string = CRS("+init=epsg:4326"))
+
+suppressMessages(library(tmap))
+tmap::tmap_mode("view")
+tmap::tm_basemap(leaflet::providers$OpenStreetMap) +
+                  tm_shape(dpts) + tm_dots()
+```
+
+## Environmental data
+
+```{r}
+suppressMessages(library(raster))
+suppressMessages(library(terra))
+suppressMessages(library(rnaturalearth))
+map <- rnaturalearth::ne_countries(type = "countries", country = "Australia", scale = "medium")
+
+# Get tmin
+tminmonth <- terra::crop(raster::getData(name = "worldclim", var = "tmin", res = 10), map)
+tmin <- terra::mean(tminmonth)
+
+# Get prec
+precmonth <- terra::crop(raster::getData(name = "worldclim", var = "prec", res = 10), map)
+prec <- terra::mean(precmonth)
+
+# Put them all into a list
+covariates_raster <- list(tmin = tmin, prec = prec)
+```
+
+## Converting everything to `spatstat` objects
+
+Covariates are usually specified in their image objects `spatstat::im`.
+Internally, this is represented as a large pixel matrix, so conversion from rasters and other image objects is usually straightforward.
+In order to convert to the proper format, the `maptools` helper function is useful.
+
+```{r}
+suppressMessages(library(maptools))
+suppressMessages(library(spatstat))
+covariates <- lapply(covariates_raster, function(cov) maptools::as.im.RasterLayer(cov))
+plot(covariates$tmin)
+plot(covariates$prec)
+```
+
+Next, when working with `spatstat` you need an observation window (region).
+It is a region in which the points are assumed to be drawn from. 
+The probability of finding locations outside of this region is assumed to be zero.
+Common ways to construct an `spatstat::owin` is to either take a fixed rectangle, i.e. `window <- owin(c(0, 100), c(0, 100))`, or to use an existing covariate or raster to construct the window.
+
+```{r}
+window <- spatstat::as.owin(covariates$tmin)
+plot(window)
+```
+
+Occurrences (or presence points) are `spatstat::ppp` objects, and basically you need a vector of x-values, a vector of y-values, and the observation window.
+
+```{r}
+configuration <- spatstat::ppp(x = df$longitude, 
+                               y = df$latitude,
+                               window = window)
+plot(configuration)
+```
+
+## Modelling with point processes
+
+It is usually a good idea to start by a ``static'' analysis of the point pattern, without yet involving covariates.
+
+```{r}
+summary(configuration)
+plot(spatstat::density.ppp(configuration))
+plot(spatstat::Kest(configuration))
+```
+
+Doing inference on the point pattern is just as easy as setting up a `glm` regression.
+Start by writing the formula, essentially `formula <- "configuration ~ covariates`
+
+```{r}
+formula <- paste0("configuration ~ ", paste0(names(covariates), collapse = " + "))
+print(formula)
+```
+
+The fitting function (analogue of `glm`) is `spatstat::ppm` and is used as follows.
+
+```{r}
+fit <- spatstat::ppm(as.formula(formula), covariates = covariates)
+```
+
+The fitted regression is manipulated in the same way as a `glm` fit is, so for example you can have a look at the summary
+
+```{r}
+summary(fit)
+```
+
+or do an ANOVA.
+
+```{r}
+formula_without_tmin <- paste0("configuration ~ ", paste0(names(covariates)[names(covariates) != "tmin"], collapse = " + "))
+fit_without_tmin <- spatstat::ppm(as.formula(formula_without_tmin), covariates = covariates)
+anova(fit, fit_without_tmin)
+```
+
+To look at the predicted intensity, you use the `spatstat::predict.ppm` function.
+
+```{r}
+pred <- spatstat::predict.ppm(fit, covariates = covariates, dimyx = c(1024, 1024))
+plot(log(pred))
+```
+
+Spatstat can handle many different types of correlation structures between individuals of the species.
+You would usually supply an `interaction` parameter to `spatstat::ppm`.
+However, initial analysis suggested attraction between the individuals, in which case a doubly-stochastic (Cox) point process is more appropriate.
+Fitting such point processes uses another function, as shown below.
+
+<!-- ```{r} -->
+  <!-- fit_cox <- spatstat::kppm(as.formula(formula), covariates = covariates, clusters = "LGCP") -->
+  <!-- summary(fit_cox) -->
+  <!-- ``` -->
+  
+  <!-- A nice way to appreciate the difference in the underlying model is to draw from the fitted distribution. -->
+  <!-- This can easily be done for the fitted Poisson point process. -->
+  
+  <!-- ```{r} -->
+  <!-- draw_ppp <- spatstat::simulate.ppm(fit) -->
+  <!-- plot(draw_ppp) -->
+  <!-- ``` -->
+  
+  <!-- Drawing from a Cox point process requires you to use another library, but it essentially works in the same way. -->
+  
+  <!-- ```{r} -->
+  <!-- library(RandomFields) -->
+  <!-- library(RandomFieldsUtils) -->
+  
+  <!-- draw_cox <- spatstat::simulate.kppm(fit_cox) -->
+  <!-- plot(draw_cox) -->
+  <!-- ``` -->
+  
+  <!-- Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`. -->
+  <!-- A lot of these functions rely on multiple simulations of the point process, which is going to be exeedingly slow for the Cox process. -->
+  <!-- Instead, we show what a goodness-of-fit test looks like with a simple fit with a Poisson point process. -->
+  
+  <!-- ```{r} -->
+  <!-- dclf.test(fit) -->
+  <!-- ``` -->
+  
+  <!-- ## Comparing the results -->
+  
+  
+  
