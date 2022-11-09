@@ -18,12 +18,28 @@ knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 
 set.seed(1)
 ```
 
+## Setup and R libraries
+```{r}
+library(geodata)
+library(leaflet)
+library(raster)
+library(sf)
+library(spocc)
+library(tmap)
+library(terra)
+
+tmap::tmap_mode("view")
+download_path <- "outputs/"
+```
+
+
 ## Species data
 
 We begin by loading the data containing recorded occurrences of koalas.
 
 ```{r}
-suppressMessages(library(spocc))
+
+
 occurrences <- spocc::occ(query = "Phascolarctos cinereus", 
                           from = "gbif",
                           date = c("2010-01-01", "2020-12-31"),
@@ -33,39 +49,47 @@ occurrences <- spocc::occ(query = "Phascolarctos cinereus",
 
 df <- occ2df(occurrences)
 
-summary(df)
 ```
+
+Citizen science data have often duplicated and mistake coordinates...
+
+Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
+
+```{r}
+cleaned_data <- filter(df, longitude > 135.3516)
+
+```
+
 
 The locations are shown below.
 
 ```{r}
-suppressMessages(library(sp))
-dpts <- sp::SpatialPoints(df[, c("longitude", "latitude")], proj4string = CRS("+init=epsg:4326"))
+dpts <- sf::st_as_sf(cleaned_data, coords = c("longitude", "latitude"), crs = 4326)
 
-suppressMessages(library(tmap))
-tmap::tmap_mode("view")
 tmap::tm_basemap(leaflet::providers$OpenStreetMap) +
-                  tm_shape(dpts) + tm_dots()
+  tm_shape(dpts) + 
+  tm_dots()
+
+
 ```
 
 ## Environmental data
 
 ```{r}
-suppressMessages(library(raster))
-suppressMessages(library(terra))
-suppressMessages(library(rnaturalearth))
-map <- rnaturalearth::ne_countries(type = "countries", country = "Australia", scale = "medium")
 
-# Get tmin
-tminmonth <- terra::crop(raster::getData(name = "worldclim", var = "tmin", res = 10), map)
-tmin <- terra::mean(tminmonth)
+aus_boundary <- geodata::gadm(country = "AUS",
+                              level = 1,
+                              resolution = 2,
+                              path = download_path)
+plot(aus_boundary)
 
-# Get prec
-precmonth <- terra::crop(raster::getData(name = "worldclim", var = "prec", res = 10), map)
-prec <- terra::mean(precmonth)
 
-# Put them all into a list
-covariates_raster <- list(tmin = tmin, prec = prec)
+# get the 19 bio-climatic variables
+raster_covars <- geodata::worldclim_country(country = "AUS",
+                                            var = "bio",
+                                            res = 10, # ***** the res argument was not working !!! *****
+                                            path = download_path) 
+
 ```
 
 ## Converting everything to `spatstat` objects
