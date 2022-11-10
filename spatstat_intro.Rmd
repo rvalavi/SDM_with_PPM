@@ -76,20 +76,20 @@ tmap::tm_basemap(leaflet::providers$OpenStreetMap) +
 ## Environmental data
 
 ```{r}
-
 aus_boundary <- geodata::gadm(country = "AUS",
                               level = 1,
                               resolution = 2,
                               path = download_path)
-plot(aus_boundary)
-
 
 # get the 19 bio-climatic variables
-raster_covars <- geodata::worldclim_country(country = "AUS",
-                                            var = "bio",
-                                            res = 10, # ***** the res argument was not working !!! *****
-                                            path = download_path) 
+raster_covars <- geodata::worldclim_global(var = "bio",
+                                           res = 10,
+                                           path = download_path) %>% 
+  terra::crop(aus_boundary) %>% 
+  terra::mask(aus_boundary)
 
+# plot a few of them
+plot(raster_covars[[1:6]])
 ```
 
 ## Converting everything to `spatstat` objects
