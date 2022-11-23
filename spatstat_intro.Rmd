@@ -19,16 +19,26 @@ set.seed(1)
 ```
 
 ## Setup and R libraries
-```{r}
-library(geodata)
-library(leaflet)
-library(raster)
-library(sf)
-library(spocc)
-library(tmap)
-library(terra)
 
-tmap::tmap_mode("view")
+```{r}
+## working with spatial data
+library(maptools) # convert raster to spatstat format
+library(sf) # working with spatial vector data
+library(terra) # working with raster data
+
+## modelling 
+library(spatstat) # fitting and exploring ppm models
+
+## data cleaning and plotting
+library(geodata) # downloading raster data for modelling
+library(spocc) # downloading example species data
+library(tmap) # plotting spatial data
+library(tidyverse) # data cleaning and wrangling
+```
+
+
+```{r}
+tmap::tmap_mode("view") # setting for tmap package
 download_path <- "outputs/"
 ```
 
@@ -38,8 +48,6 @@ download_path <- "outputs/"
 We begin by loading the data containing recorded occurrences of koalas.
 
 ```{r}
-
-
 occurrences <- spocc::occ(query = "Phascolarctos cinereus", 
                           from = "gbif",
                           date = c("2010-01-01", "2020-12-31"),
@@ -56,8 +64,10 @@ Citizen science data have often duplicated and mistake coordinates...
 Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
 
 ```{r}
-cleaned_data <- filter(df, longitude > 135.3516)
+cleaned_data <- dplyr::filter(df, longitude > 135.3516) %>% 
+  dplyr::select(longitude, latitude)
 
+head(cleaned_data)
 ```
 
 
@@ -66,10 +76,9 @@ The locations are shown below.
 ```{r}
 dpts <- sf::st_as_sf(cleaned_data, coords = c("longitude", "latitude"), crs = 4326)
 
-tmap::tm_basemap(leaflet::providers$OpenStreetMap) +
+tmap::tm_basemap() +
   tm_shape(dpts) + 
   tm_dots()
-
 
 ```
 
@@ -99,12 +108,15 @@ Internally, this is represented as a large pixel matrix, so conversion from rast
 In order to convert to the proper format, the `maptools` helper function is useful.
 
 ```{r}
-suppressMessages(library(maptools))
-suppressMessages(library(spatstat))
-covariates <- lapply(covariates_raster, function(cov) maptools::as.im.RasterLayer(cov))
-plot(covariates$tmin)
-plot(covariates$prec)
+covariates <- raster::stack(raster_covars) %>% 
+  as.list() %>%
+  lapply(maptools::as.im.RasterLayer)
+
+plot(covariates[[1]])
+plot(covariates[[12]])
+
 ```
+
 
 Next, when working with `spatstat` you need an observation window (region).
 It is a region in which the points are assumed to be drawn from. 
