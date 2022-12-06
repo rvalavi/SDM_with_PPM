@@ -40,6 +40,8 @@ library(tidyverse) # data cleaning and wrangling
 ```{r}
 tmap::tmap_mode("view") # setting for tmap package
 download_path <- "outputs/"
+# reading helper functions
+source("R/helper_functions.R")
 ```
 
 
@@ -101,6 +103,17 @@ raster_covars <- geodata::worldclim_global(var = "bio",
 plot(raster_covars[[1:6]])
 ```
 
+## Make sure only values....
+Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
+
+```{r}
+mask_layer <- min(raster_covars)
+raster_covars <- terra::mask(raster_covars, mask_layer)
+
+```
+
+
+
 ## Converting everything to `spatstat` objects
 
 Covariates are usually specified in their image objects `spatstat::im`.
@@ -108,10 +121,8 @@ Internally, this is represented as a large pixel matrix, so conversion from rast
 In order to convert to the proper format, the `maptools` helper function is useful.
 
 ```{r}
-covariates <- raster::stack(raster_covars) %>% 
-  as.list() %>%
-  lapply(maptools::as.im.RasterLayer)
-
+covariates <- lapply(raster_covars, as.im)
+names(covariates) <- names(raster_covars)
 plot(covariates[[1]])
 plot(covariates[[12]])
 
@@ -124,17 +135,19 @@ The probability of finding locations outside of this region is assumed to be zer
 Common ways to construct an `spatstat::owin` is to either take a fixed rectangle, i.e. `window <- owin(c(0, 100), c(0, 100))`, or to use an existing covariate or raster to construct the window.
 
 ```{r}
-window <- spatstat::as.owin(covariates$tmin)
+window <- spatstat.geom::as.owin(covariates[[1]])
 plot(window)
+
 ```
 
 Occurrences (or presence points) are `spatstat::ppp` objects, and basically you need a vector of x-values, a vector of y-values, and the observation window.
 
 ```{r}
-configuration <- spatstat::ppp(x = df$longitude, 
-                               y = df$latitude,
-                               window = window)
+configuration <- spatstat.geom::ppp(x = cleaned_data$longitude, 
+                                    y = cleaned_data$latitude,
+                                    window = window)
 plot(configuration)
+
 ```
 
 ## Modelling with point processes
@@ -143,8 +156,15 @@ It is usually a good idea to start by a ``static'' analysis of the point pattern
 
 ```{r}
 summary(configuration)
-plot(spatstat::density.ppp(configuration))
-plot(spatstat::Kest(configuration))
+plot(spatstat.core::density.ppp(configuration))
+points(configuration, pch = 16, cex = 0.2)
+
+```
+
+
+```{r}
+plot(spatstat.core::Kest(configuration))
+
 ```
 
 Doing inference on the point pattern is just as easy as setting up a `glm` regression.
