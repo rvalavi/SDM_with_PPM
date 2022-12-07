@@ -1,6 +1,5 @@
 ---
-title: "Species distribution modelling with Poisson point processes"
-subtitle: "The Quantitative & Applied Ecology Group (QAECO), The University of Melbourne"
+title: "Tutorial 1: simplest point process model"
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 
@@ -66,17 +65,17 @@ Citizen science data have often duplicated and mistake coordinates...
 Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
 
 ```{r}
-cleaned_data <- dplyr::filter(df, longitude > 135.3516) %>% 
+point_data <- dplyr::filter(df, longitude > 135.3516) %>% 
   dplyr::select(longitude, latitude)
 
-head(cleaned_data)
+head(point_data)
 ```
 
 
 The locations are shown below.
 
 ```{r}
-dpts <- sf::st_as_sf(cleaned_data, coords = c("longitude", "latitude"), crs = 4326)
+dpts <- sf::st_as_sf(point_data, coords = c("longitude", "latitude"), crs = 4326)
 
 tmap::tm_basemap() +
   tm_shape(dpts) + 
@@ -103,12 +102,19 @@ raster_covars <- geodata::worldclim_global(var = "bio",
 plot(raster_covars[[1:6]])
 ```
 
-## Make sure only values....
+## Let's clean the coordinates of occurrence
+
 Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
 
 ```{r}
-mask_layer <- min(raster_covars)
-raster_covars <- terra::mask(raster_covars, mask_layer)
+# function is from the helper_functions.R
+cleaned_data <- clean_occ(points = point_data, 
+                          r = raster_covars[[1]], 
+                          remove_outside = TRUE, 
+                          remove_duplicates = TRUE)
+
+nrow(point_data)
+nrow(cleaned_data)
 
 ```
 
@@ -122,9 +128,10 @@ In order to convert to the proper format, the `maptools` helper function is usef
 
 ```{r}
 covariates <- lapply(raster_covars, as.im)
-names(covariates) <- names(raster_covars)
-plot(covariates[[1]])
-plot(covariates[[12]])
+# change the names of covariates by cleaning the name
+names(covariates) <- str_sub(names(raster_covars), 11, 1000)
+
+plot(covariates[[1]], main = names(covariates)[1])
 
 ```
 
@@ -139,6 +146,7 @@ window <- spatstat.geom::as.owin(covariates[[1]])
 plot(window)
 
 ```
+
 
 Occurrences (or presence points) are `spatstat::ppp` objects, and basically you need a vector of x-values, a vector of y-values, and the observation window.
 
