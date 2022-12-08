@@ -22,53 +22,26 @@ set.seed(1)
 ```{r}
 ## working with spatial data
 library(maptools) # convert raster to spatstat format
-library(sf) # working with spatial vector data
 library(terra) # working with raster data
 
 ## modelling 
 library(spatstat) # fitting and exploring ppm models
-
-## data cleaning and plotting
-library(geodata) # downloading raster data for modelling
-library(spocc) # downloading example species data
-library(tmap) # plotting spatial data
-library(tidyverse) # data cleaning and wrangling
 ```
 
 
 ```{r}
 tmap::tmap_mode("view") # setting for tmap package
-download_path <- "outputs/"
-# reading helper functions
-source("R/helper_functions.R")
+
 ```
 
 
 ## Species data
 
-We begin by loading the data containing recorded occurrences of koalas.
+Reading species data....
 
 ```{r}
-occurrences <- spocc::occ(query = "Phascolarctos cinereus", 
-                          from = "gbif",
-                          date = c("2010-01-01", "2020-12-31"),
-                          gbifopts = list(country = "AU"),
-                          has_coords = TRUE, 
-                          limit = 1e4)
+point_data <- read.csv("data/species/...")
 
-df <- occ2df(occurrences)
-
-```
-
-Citizen science data have often duplicated and mistake coordinates...
-
-Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
-
-```{r}
-point_data <- dplyr::filter(df, longitude > 135.3516) %>% 
-  dplyr::select(longitude, latitude)
-
-head(point_data)
 ```
 
 
@@ -86,38 +59,13 @@ tmap::tm_basemap() +
 ## Environmental data
 
 ```{r}
-aus_boundary <- geodata::gadm(country = "AUS",
-                              level = 1,
-                              resolution = 2,
-                              path = download_path)
-
 # get the 19 bio-climatic variables
-raster_covars <- geodata::worldclim_global(var = "bio",
-                                           res = 10,
-                                           path = download_path) %>% 
-  terra::crop(aus_boundary) %>% 
-  terra::mask(aus_boundary)
+raster_covars <- terra::rast("data/rasters/...")
 
 # plot a few of them
 plot(raster_covars[[1:6]])
-```
-
-## Let's clean the coordinates of occurrence
-
-Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
-
-```{r}
-# function is from the helper_functions.R
-cleaned_data <- clean_occ(points = point_data, 
-                          r = raster_covars[[1]], 
-                          remove_outside = TRUE, 
-                          remove_duplicates = TRUE)
-
-nrow(point_data)
-nrow(cleaned_data)
 
 ```
-
 
 
 ## Converting everything to `spatstat` objects

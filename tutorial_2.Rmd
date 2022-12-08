@@ -1,0 +1,41 @@
+---
+title: 'Tutorial 2: point process simulation'
+author: "Ian Flint and Roozbeh Valavi"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document
+vignette: >
+  %\VignetteIndexEntry{Species distribution modelling with Poisson point processes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+always_allow_html: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 80), fig.align="center", message = FALSE, warning = FALSE, fig.height = 5, fig.width = 5)
+
+set.seed(1)
+```
+
+
+
+## Setup and R libraries
+
+```{r}
+## working with spatial data
+library(maptools) # convert raster to spatstat format
+library(sf) # working with spatial vector data
+library(terra) # working with raster data
+
+## modelling 
+library(spatstat) # fitting and exploring ppm models
+
+## data cleaning and plotting
+library(geodata) # downloading raster data for modelling
+library(spocc) # downloading example species data
+library(tmap) # plotting spatial data
+library(tidyverse) # data cleaning and wrangling
+```
+
+
+

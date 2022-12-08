@@ -4,9 +4,8 @@ as.im.SpatRaster <- function (from, factor.col.name = NULL){
   return(im)
 }
 
-points <- cleaned_data
-r <- raster_covars[[1]]
 
+# cleaning occurrence points
 clean_occ <- function(
     points, # dataframe of coordinates of occurrences (e.g., logitude and latitude)
     r, # one raster covariate to be used as a mask
