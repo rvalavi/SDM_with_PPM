@@ -10,22 +10,40 @@ as.im.SpatRaster <- function (from, factor.col.name = NULL){
 }
 
 
+# crs transform function for xy
+crs_transform <- function(xy, # a dataframe with two column: x/longitude, and y/latitude
+                          in_crs = 4326,
+                          out_crs = 4326){
+  
+  xy <- as.data.frame(xy)
+  
+  ppt <- sf::st_as_sf(xy, coords = 1:2, crs = in_crs) %>% 
+    sf::st_transform(crs = out_crs) %>% 
+    sf::st_coordinates() %>% 
+    as.data.frame()
+
+  return(ppt)
+}
+
+
+
 # cleaning occurrence points
 clean_occ <- function(
     points, # dataframe of coordinates of occurrences (e.g., logitude and latitude)
     r, # one raster covariate to be used as a mask
     # jitter = 0,
     remove_outside = TRUE, # remove points outside of window
-    remove_duplicates = TRUE #remove duplicate points
+    remove_dup_dist = 0, # remove duplicate points with some distance
+    crs = 4326
 ){
   # for considering jitter look at sf::st_jitter()
   r <- r[[1]]
   
-  # revise this; as in PPM the cell duplicates doesn't matter
-  if(remove_duplicates){
-    cells <- terra::cellFromXY(r, as.matrix(points))
-    points <- points[!duplicated(cells),]
-  }
+  # # revise this; as in PPM the cell duplicates doesn't matter
+  # if(remove_duplicates){
+  #   cells <- terra::cellFromXY(r, as.matrix(points))
+  #   points <- points[!duplicated(cells),]
+  # }
   
   if(remove_outside){
     imr <- as.im(r)

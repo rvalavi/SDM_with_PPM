@@ -40,30 +40,22 @@ tmap::tmap_mode("view") # setting for tmap package
 Reading species data....
 
 ```{r}
-point_data <- read.csv("data/species/...")
+occurrences <- read.csv("data/species/occurrences.csv")
+head(occurrences)
 
 ```
 
-
-The locations are shown below.
-
-```{r}
-dpts <- sf::st_as_sf(point_data, coords = c("longitude", "latitude"), crs = 4326)
-
-tmap::tm_basemap() +
-  tm_shape(dpts) + 
-  tm_dots()
-
-```
 
 ## Environmental data
 
 ```{r}
+files <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE)
 # get the 19 bio-climatic variables
-raster_covars <- terra::rast("data/rasters/...")
+rasters <- terra::rast(files)
 
 # plot a few of them
-plot(raster_covars[[1:6]])
+plot(rasters[[1]])
+points(occurrences)
 
 ```
 
@@ -75,9 +67,8 @@ Internally, this is represented as a large pixel matrix, so conversion from rast
 In order to convert to the proper format, the `maptools` helper function is useful.
 
 ```{r}
-covariates <- lapply(raster_covars, as.im)
-# change the names of covariates by cleaning the name
-names(covariates) <- str_sub(names(raster_covars), 11, 1000)
+covariates <- lapply(rasters, as.im)
+names(covariates) <- names(rasters)
 
 plot(covariates[[1]], main = names(covariates)[1])
 
@@ -99,8 +90,8 @@ plot(window)
 Occurrences (or presence points) are `spatstat::ppp` objects, and basically you need a vector of x-values, a vector of y-values, and the observation window.
 
 ```{r}
-configuration <- spatstat.geom::ppp(x = cleaned_data$longitude, 
-                                    y = cleaned_data$latitude,
+configuration <- spatstat.geom::ppp(x = occurrences$X, 
+                                    y = occurrences$Y,
                                     window = window)
 plot(configuration)
 

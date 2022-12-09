@@ -24,17 +24,11 @@ set.seed(1)
 ```{r}
 ## working with spatial data
 library(maptools) # convert raster to spatstat format
-library(sf) # working with spatial vector data
 library(terra) # working with raster data
 
 ## modelling 
 library(spatstat) # fitting and exploring ppm models
 
-## data cleaning and plotting
-library(geodata) # downloading raster data for modelling
-library(spocc) # downloading example species data
-library(tmap) # plotting spatial data
-library(tidyverse) # data cleaning and wrangling
 ```
 
 
