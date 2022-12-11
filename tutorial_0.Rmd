@@ -78,22 +78,10 @@ tmap::tm_basemap() +
 
 ```
 
+Citizen science data often have duplicated, unexpected locations (e.g. location of an animal in a zoo far from it actual habitat), points of terrestrial animal and plants locating in ocean, mistake coordinates etc. We explore these in one of the following sections.
 
 
-Citizen science data often have duplicated and mistake coordinates...
-
-Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
-
-```{r}
-occ_cleaned <- dplyr::filter(occ_df, longitude > 135.3516) %>% 
-  dplyr::select(longitude, latitude)
-
-head(occ_cleaned)
-```
-
-
-
-## Environmental data
+## Environmental covariates
 
 ```{r}
 aus_boundary <- geodata::gadm(country = "AUS",
@@ -136,6 +124,36 @@ selected_covars <- raster_covars[[uncorr_list]]
 
 
 
+## Let's clean the coordinates of occurrence
+
+
+Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
+
+```{r}
+occ_cleaned <- dplyr::filter(occ_df, longitude > 135.3516) %>% 
+  dplyr::select(longitude, latitude)
+
+head(occ_cleaned)
+```
+
+
+
+Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
+
+
+```{r}
+# function is from the helper_functions.R
+occ_cleaned <- clean_occ(points = occ_cleaned, 
+                         r = rasters[[1]],
+                         crs = 4326,  # the default CRS of GBIF records;
+                         remove_outside = TRUE, 
+                         remove_dup_dist = 0)
+
+```
+
+
+
+
 ## Data projection
 
 For PPM it is better to have the data in a metric reference systems...
@@ -159,29 +177,10 @@ plot(rasters[[1]], main = names(rasters)[1])
 
 
 ```{r}
-occ_transfomed <- crs_transform(occ_cleaned, 
-                                in_crs = 4326, 
-                                out_crs = output_crs)
-head(occ_transfomed)
-
-```
-
-
-
-
-
-## Let's clean the coordinates of occurrence
-
-Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
-
-
-```{r}
-# function is from the helper_functions.R
-occurrences <- clean_occ(points = occ_transfomed, 
-                         r = rasters[[1]], 
-                         remove_outside = TRUE, 
-                         remove_dup_dist = 0,
-                         crs = output_crs)
+occ_transformed <- crs_transform(occ_cleaned, 
+                                 in_crs = 4326, 
+                                 out_crs = output_crs)
+head(occ_transformed)
 
 ```
 
