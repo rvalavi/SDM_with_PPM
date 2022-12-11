@@ -17,6 +17,9 @@ knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 
 set.seed(1)
 ```
 
+In this document, we show how to fit the simplest point process model namely, Poisson process model.
+
+
 ## Setup and R libraries
 
 ```{r}

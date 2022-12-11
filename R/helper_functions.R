@@ -1,16 +1,17 @@
+library(maptools)
 library(sf)
 library(spatstat)
 library(terra)
 
 
-# Note: to generalise the maptools::as.im.RasterLayer to terra::SpatRaster
+# Note: to generalise the maptools::as.im.RasterLayer to terra SpatRaster
 as.im.SpatRaster <- function (from, factor.col.name = NULL){
   im <- maptools::as.im.RasterLayer(raster::raster(from))
   return(im)
 }
 
 
-# crs transform function for xy
+# crs transform function for xy dataframe
 crs_transform <- function(xy, # a dataframe with two column: x/longitude, and y/latitude
                           in_crs = 4326,
                           out_crs = 4326){

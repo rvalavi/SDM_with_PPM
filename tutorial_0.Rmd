@@ -23,12 +23,8 @@ set.seed(1)
 
 ```{r}
 ## working with spatial data
-library(maptools) # convert raster to spatstat format
 library(sf) # working with spatial vector data
 library(terra) # working with raster data
-
-## modelling 
-library(spatstat) # fitting and exploring ppm models
 
 ## data cleaning and plotting
 library(geodata) # downloading raster data for modelling
@@ -41,9 +37,11 @@ library(tidyverse) # data cleaning and wrangling
 
 ```{r}
 tmap::tmap_mode("view") # setting for tmap package
+# a folder to save raster temp data
 download_path <- "outputs/"
 # reading helper functions
 source("R/helper_functions.R")
+
 ```
 
 
@@ -54,43 +52,46 @@ source("R/helper_functions.R")
 We begin by loading the data containing recorded occurrences of koalas.
 
 ```{r}
-
-#****** maybe replacing this with geodata package to remove one dependency
-#*
-#*
 occ <- spocc::occ(query = "Phascolarctos cinereus", 
-                          from = "gbif",
-                          date = c("2010-01-01", "2020-12-31"),
-                          gbifopts = list(country = "AU"),
-                          has_coords = TRUE, 
-                          limit = 1e4)
+                  from = "gbif",
+                  date = c("2010-01-01", "2020-12-31"),
+                  gbifopts = list(country = "AU"),
+                  has_coords = TRUE, 
+                  limit = 1e4)
 
-df <- spocc::occ2df(occ)
+occ_df <- spocc::occ2df(occ)
+head(occ_df)
 
 ```
 
-Citizen science data have often duplicated and mistake coordinates...
 
-Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
-
-```{r}
-point_data <- dplyr::filter(df, longitude > 135.3516) %>% 
-  dplyr::select(longitude, latitude)
-
-head(point_data)
-```
 
 
 The locations are shown below.
 
 ```{r}
-dpts <- sf::st_as_sf(point_data, coords = c("longitude", "latitude"), crs = 4326)
+occ_sf <- sf::st_as_sf(occ_df, coords = c("longitude", "latitude"), crs = 4326)
 
 tmap::tm_basemap() +
-  tm_shape(dpts) + 
-  tm_dots()
+  tmap::tm_shape(occ_sf) + 
+  tmap::tm_dots()
 
 ```
+
+
+
+Citizen science data often have duplicated and mistake coordinates...
+
+Cleaning the data to remove unlikely points... in this case there are some points in .... that we remove by filtering the longitude. You might need to check your desired species data and remove the unlikely records.
+
+```{r}
+occ_cleaned <- dplyr::filter(occ_df, longitude > 135.3516) %>% 
+  dplyr::select(longitude, latitude)
+
+head(occ_cleaned)
+```
+
+
 
 ## Environmental data
 
@@ -108,7 +109,7 @@ raster_covars <- geodata::worldclim_global(var = "bio",
   terra::mask(aus_boundary)
 
 
-# change the names of covariates by cleaning the name
+# cleaning the names of covariates (optional)
 names(raster_covars) <- str_sub(names(raster_covars), 11, 100)
 
 # plot a few of them
@@ -127,8 +128,10 @@ vif
 
 
 ```{r}
-uncorr_names <- vif@results$Variables
-selected_covars <- raster_covars[[uncorr_names]]
+# select the list of uncorrelated covariates
+uncorr_list <- vif@results$Variables
+selected_covars <- raster_covars[[uncorr_list]]
+
 ```
 
 
@@ -142,8 +145,8 @@ Some lectures on CRS by Roozbeh...
 We need to change both raster and point data into one projections.
 
 ```{r}
-###******** change this to GDA 2020 Lambert *******
-output_crs <- 7855
+# GDA 2020 Lambert CRS
+output_crs <- 7845
 
 ```
 
@@ -156,7 +159,7 @@ plot(rasters[[1]], main = names(rasters)[1])
 
 
 ```{r}
-occ_transfomed <- crs_transform(cleaned_data, 
+occ_transfomed <- crs_transform(occ_cleaned, 
                                 in_crs = 4326, 
                                 out_crs = output_crs)
 head(occ_transfomed)
@@ -196,6 +199,7 @@ terra::writeRaster(
   x = rasters,
   filename = paste0("data/rasters/", names(rasters), ".tif")
 )
+
 ```
 
 
