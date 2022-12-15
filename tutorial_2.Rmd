@@ -1,5 +1,5 @@
 ---
-title: 'Tutorial 2: point process simulation'
+title: 'Tutorial 2: point process advanced topics'
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 
@@ -32,4 +32,78 @@ library(spatstat) # fitting and exploring ppm models
 ```
 
 
+
+## Cox process
+
+Spatstat can handle many different types of correlation structures between individuals of the species.
+You would usually supply an `interaction` parameter to `spatstat.core::ppm`.
+However, initial analysis suggested attraction between the individuals, in which case a doubly-stochastic (Cox) point process is more appropriate.
+Fitting such point processes uses another function, as shown below.
+
+<!-- ```{r} -->
+  <!-- fit_cox <- spatstat::kppm(as.formula(formula), covariates = covariates, clusters = "LGCP") -->
+  <!-- summary(fit_cox) -->
+  <!-- ``` -->
+  
+  <!-- A nice way to appreciate the difference in the underlying model is to draw from the fitted distribution. -->
+  <!-- This can easily be done for the fitted Poisson point process. -->
+  
+  <!-- ```{r} -->
+  <!-- draw_ppp <- spatstat::simulate.ppm(fit) -->
+  <!-- plot(draw_ppp) -->
+  <!-- ``` -->
+  
+  <!-- Drawing from a Cox point process requires you to use another library, but it essentially works in the same way. -->
+  
+  <!-- ```{r} -->
+  <!-- library(RandomFields) -->
+  <!-- library(RandomFieldsUtils) -->
+  
+  <!-- draw_cox <- spatstat::simulate.kppm(fit_cox) -->
+  <!-- plot(draw_cox) -->
+  <!-- ``` -->
+  
+  <!-- Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`. -->
+  <!-- A lot of these functions rely on multiple simulations of the point process, which is going to be exeedingly slow for the Cox process. -->
+  <!-- Instead, we show what a goodness-of-fit test looks like with a simple fit with a Poisson point process. -->
+  
+  <!-- ```{r} -->
+  <!-- dclf.test(fit) -->
+  <!-- ``` -->
+  
+  <!-- ## Comparing the results -->
+  
+  
+  
+
+
+## Fit Poisson process in Stan (Bayesian framework)
+
+[](https://towardsdatascience.com/understanding-point-process-model-with-r-983553ca2a86)
+
+```{r}
+ppm_stan <- '
+data{
+  int<lower = 1> n;
+  vector[n] x;
+  int<lower = 0> y[n];
+}
+parameters{
+  real beta0;
+  real beta1;
+}
+transformed parameters{
+}
+model{
+  //priors
+  target += normal_lpdf(beta0 | 0,5);
+  target += normal_lpdf(beta1 | 0,10);// likelihood
+  target += poisson_log_lpmf(y | beta0 + beta1 * x);
+}
+generated quantities{
+  vector[n] lambda_rep;
+  lambda_rep = exp(beta0 + beta1 * x);
+}'
+
+```
 

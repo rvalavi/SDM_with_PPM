@@ -1,5 +1,5 @@
 ---
-title: 'Tutorial 3: point process advanced topics'
+title: 'Tutorial 3: point process simulation'
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 

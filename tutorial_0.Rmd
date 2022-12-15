@@ -137,7 +137,6 @@ head(occ_cleaned)
 ```
 
 
-
 Make use that all the layers have the same NA data. By taking a `min` or `max` function a mask layer is created as an one raster layer with NA will result in NA in the mask layer.
 
 
@@ -158,7 +157,7 @@ occ_cleaned <- clean_occ(points = occ_cleaned,
 
 For PPM it is better to have the data in a metric reference systems...
 
-Some lectures on CRS by Roozbeh...
+Some ramble on CRS by Roozbeh...
 
 We need to change both raster and point data into one projections.
 

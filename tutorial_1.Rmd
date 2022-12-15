@@ -32,15 +32,11 @@ library(spatstat) # fitting and exploring ppm models
 ```
 
 
-```{r}
-tmap::tmap_mode("view") # setting for tmap package
-
-```
-
-
 ## Species data
 
 Reading species data....
+
+Note that the spatial coordinate system is a metric CRS...
 
 ```{r}
 occurrences <- read.csv("data/species/occurrences.csv")
@@ -51,10 +47,15 @@ head(occurrences)
 
 ## Environmental data
 
+We read raster covariate here....
+
+We need to centre and scale covariate to ... 
+
 ```{r}
 files <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE)
 # get the 19 bio-climatic variables
-rasters <- terra::rast(files)
+r <- terra::rast(files)
+rasters <- terra::scale(r, center=TRUE, scale=TRUE)
 
 # plot a few of them
 plot(rasters[[1]])
@@ -100,22 +101,31 @@ plot(configuration)
 
 ```
 
-## Modelling with point processes
+## Pre-modelling diagnostics
 
 It is usually a good idea to start by a ``static'' analysis of the point pattern, without yet involving covariates.
 
 ```{r}
 summary(configuration)
-plot(spatstat.core::density.ppp(configuration))
+
+point_density <- spatstat.core::density.ppp(configuration, sigma = 1e5)
+plot(log(point_density + 1e-11)) # a very small arbitrary value to avoid log of zero
 points(configuration, pch = 16, cex = 0.2)
 
 ```
 
+Here, we use `K` function to assess the clustering .... there are other functions such as `L` function and `g` function.
+
 
 ```{r}
-plot(spatstat.core::Kest(configuration))
+plot(spatstat.core::Kinhom(configuration, 
+                           correction = "translate", 
+                           normpower = 2))
 
 ```
+
+
+## Modelling with Poisson point process
 
 Doing inference on the point pattern is just as easy as setting up a `glm` regression.
 Start by writing the formula, essentially `formula <- "configuration ~ covariates`
@@ -128,7 +138,8 @@ print(formula)
 The fitting function (analogue of `glm`) is `spatstat::ppm` and is used as follows.
 
 ```{r}
-fit <- spatstat::ppm(as.formula(formula), covariates = covariates)
+fit <- spatstat.core::ppm(as.formula(formula), covariates = covariates)
+
 ```
 
 The fitted regression is manipulated in the same way as a `glm` fit is, so for example you can have a look at the summary
@@ -140,55 +151,20 @@ summary(fit)
 or do an ANOVA.
 
 ```{r}
-formula_without_tmin <- paste0("configuration ~ ", paste0(names(covariates)[names(covariates) != "tmin"], collapse = " + "))
-fit_without_tmin <- spatstat::ppm(as.formula(formula_without_tmin), covariates = covariates)
-anova(fit, fit_without_tmin)
+updated_form <- paste0("configuration ~ ", paste0(names(covariates)[names(covariates) != "bio_15"], collapse = " + "))
+
+updated_fit <- spatstat.core::ppm(as.formula(updated_form), covariates = covariates)
+
+anova(fit, updated_fit)
+
 ```
 
-To look at the predicted intensity, you use the `spatstat::predict.ppm` function.
+To look at the predicted intensity, you use the `spatstat.core::predict.ppm` function.
 
 ```{r}
-pred <- spatstat::predict.ppm(fit, covariates = covariates, dimyx = c(1024, 1024))
+pred <- spatstat.core::predict.ppm(fit, covariates = covariates, dimyx = c(1024, 1024))
+
 plot(log(pred))
+points(configuration, pch = 16, cex = 0.2)
+
 ```
-
-Spatstat can handle many different types of correlation structures between individuals of the species.
-You would usually supply an `interaction` parameter to `spatstat::ppm`.
-However, initial analysis suggested attraction between the individuals, in which case a doubly-stochastic (Cox) point process is more appropriate.
-Fitting such point processes uses another function, as shown below.
-
-<!-- ```{r} -->
-  <!-- fit_cox <- spatstat::kppm(as.formula(formula), covariates = covariates, clusters = "LGCP") -->
-  <!-- summary(fit_cox) -->
-  <!-- ``` -->
-  
-  <!-- A nice way to appreciate the difference in the underlying model is to draw from the fitted distribution. -->
-  <!-- This can easily be done for the fitted Poisson point process. -->
-  
-  <!-- ```{r} -->
-  <!-- draw_ppp <- spatstat::simulate.ppm(fit) -->
-  <!-- plot(draw_ppp) -->
-  <!-- ``` -->
-  
-  <!-- Drawing from a Cox point process requires you to use another library, but it essentially works in the same way. -->
-  
-  <!-- ```{r} -->
-  <!-- library(RandomFields) -->
-  <!-- library(RandomFieldsUtils) -->
-  
-  <!-- draw_cox <- spatstat::simulate.kppm(fit_cox) -->
-  <!-- plot(draw_cox) -->
-  <!-- ``` -->
-  
-  <!-- Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`. -->
-  <!-- A lot of these functions rely on multiple simulations of the point process, which is going to be exeedingly slow for the Cox process. -->
-  <!-- Instead, we show what a goodness-of-fit test looks like with a simple fit with a Poisson point process. -->
-  
-  <!-- ```{r} -->
-  <!-- dclf.test(fit) -->
-  <!-- ``` -->
-  
-  <!-- ## Comparing the results -->
-  
-  
-  
