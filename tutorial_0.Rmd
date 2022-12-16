@@ -28,6 +28,7 @@ library(terra) # working with raster data
 
 ## data cleaning and plotting
 library(geodata) # downloading raster data for modelling
+library(rnaturalearth) # downloading country borders
 library(spocc) # downloading example species data
 library(tmap) # plotting spatial data
 library(tidyverse) # data cleaning and wrangling
@@ -84,10 +85,14 @@ Citizen science data often have duplicated, unexpected locations (e.g. location 
 ## Environmental covariates
 
 ```{r}
-aus_boundary <- geodata::gadm(country = "AUS",
-                              level = 1,
-                              resolution = 2,
-                              path = download_path)
+# aus_boundary <- geodata::gadm(country = "AUS",
+#                               level = 1,
+#                               resolution = 2,
+#                               path = download_path)
+aus_boundary <- rnaturalearth::ne_countries(country = "Australia",
+                                            scale = 50,
+                                            returnclass = "sf") %>% 
+  sf::st_crop(c(xmin=110, xmax=155, ymin=-45, ymax=-5))
 
 # get the 19 bio-climatic variables
 raster_covars <- geodata::worldclim_global(var = "bio",
