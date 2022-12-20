@@ -23,12 +23,15 @@ In this document, we show how to fit the simplest point process model namely, Po
 ## Setup and R libraries
 
 ```{r}
-## working with spatial data
-library(maptools) # convert raster to spatstat format
+library(spatstat) # fitting and exploring ppm models
 library(terra) # working with raster data
 
-## modelling 
-library(spatstat) # fitting and exploring ppm models
+```
+
+
+```{r}
+source("R/helper_functions.R")
+
 ```
 
 
@@ -69,6 +72,7 @@ points(occurrences)
 Covariates are usually specified in their image objects `spatstat::im`.
 Internally, this is represented as a large pixel matrix, so conversion from rasters and other image objects is usually straightforward.
 In order to convert to the proper format, the `maptools` helper function is useful.
+
 
 ```{r}
 covariates <- lapply(rasters, as.im)

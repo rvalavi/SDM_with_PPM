@@ -22,12 +22,9 @@ set.seed(1)
 ## Setup and R libraries
 
 ```{r}
-## working with spatial data
-library(maptools) # convert raster to spatstat format
+library(spatstat) # fitting and exploring ppm models
 library(terra) # working with raster data
 
-## modelling 
-library(spatstat) # fitting and exploring ppm models
 ```
 
 
