@@ -75,7 +75,7 @@ In order to convert to the proper format, the `maptools` helper function is usef
 
 
 ```{r}
-covariates <- lapply(rasters, as.im)
+covariates <- lapply(rasters, spatstat.geom::as.im)
 names(covariates) <- names(rasters)
 
 plot(covariates[[1]], main = names(covariates)[1])
@@ -122,9 +122,12 @@ Here, we use `K` function to assess the clustering .... there are other function
 
 
 ```{r}
-plot(spatstat.core::Kinhom(configuration, 
-                           correction = "translate", 
-                           normpower = 2))
+k_func <- spatstat.core::Kinhom(configuration, 
+                                correction = "translate", 
+                                normpower = 2)
+
+# make a ggplot for this...
+plot(k_func)
 
 ```
 
@@ -137,7 +140,17 @@ Start by writing the formula, essentially `formula <- "configuration ~ covariate
 ```{r}
 formula <- paste0("configuration ~ ", paste0(names(covariates), collapse = " + "))
 print(formula)
+
 ```
+
+
+```{r}
+# formula <- configuration ~ log(bio_14 + 10)
+
+```
+
+
+
 
 The fitting function (analogue of `glm`) is `spatstat::ppm` and is used as follows.
 
@@ -170,5 +183,32 @@ pred <- spatstat.core::predict.ppm(fit, covariates = covariates, dimyx = c(1024,
 
 plot(log(pred))
 points(configuration, pch = 16, cex = 0.2)
+
+```
+
+```{r}
+plot(log(rast(pred)))
+points(configuration, pch = 16, cex = 0.2)
+```
+
+
+
+```{r}
+library(rasterVis)
+
+# GDA 2020 Lambert CRS
+output_crs <- 7845
+
+log_pred <- pred %>% 
+  rast() %>% 
+  log()
+
+gplot(log_pred) +
+  geom_tile(aes(fill = value)) +
+  scale_fill_gradientn(colours = terrain.colors(20, rev = TRUE), na.value = NA) +
+  geom_point(data = occurrences, aes(x = X, y = Y), alpha = 0.1, size = 0.3) +
+  coord_sf(crs = 7845) +
+  theme_bw() +
+  labs(x = "Longitude", y = "Latitude")
 
 ```

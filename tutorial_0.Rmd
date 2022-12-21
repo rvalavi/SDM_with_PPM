@@ -28,7 +28,8 @@ library(terra) # working with raster data
 
 ## data cleaning and plotting
 library(geodata) # downloading raster data for modelling
-library(rnaturalearth) # downloading country borders
+# remotes::install_github("ropensci/rnaturalearthhires") # you also need this
+library(rnaturalearth)
 library(spocc) # downloading example species data
 library(tmap) # plotting spatial data
 library(tidyverse) # data cleaning and wrangling
@@ -85,25 +86,34 @@ Citizen science data often have duplicated, unexpected locations (e.g. location 
 ## Environmental covariates
 
 ```{r}
-# aus_boundary <- geodata::gadm(country = "AUS",
-#                               level = 1,
-#                               resolution = 2,
-#                               path = download_path)
-aus_boundary <- rnaturalearth::ne_countries(country = "Australia",
+australia <- rnaturalearth::ne_countries(country = "Australia",
                                             scale = 50,
                                             returnclass = "sf") %>% 
   sf::st_crop(c(xmin=110, xmax=155, ymin=-45, ymax=-5))
+
+
+koala_states <- c("South Australia",
+                  "Queensland", 
+                  "New South Wales", 
+                  "Victoria", 
+                  "Australian Capital Territory")
+eastern_states <- rnaturalearth::ne_states(country = "Australia",
+                                           returnclass = "sf") %>% 
+  dplyr::filter(name %in% koala_states) %>% 
+  sf::st_union() %>% 
+  terra::vect()
+
 
 # get the 19 bio-climatic variables
 raster_covars <- geodata::worldclim_global(var = "bio",
                                            res = 10,
                                            path = download_path) %>% 
-  terra::crop(aus_boundary) %>% 
-  terra::mask(aus_boundary)
+  terra::crop(eastern_states) %>% 
+  terra::mask(eastern_states)
 
 
 # cleaning the names of covariates (optional)
-names(raster_covars) <- str_sub(names(raster_covars), 11, 100)
+names(raster_covars) <- substr(names(raster_covars), 11, 100)
 
 # plot a few of them
 plot(raster_covars[[1:6]])
@@ -200,7 +210,8 @@ write.csv(occurrences, "data/species/occurrences.csv", row.names = FALSE)
 ```{r}
 terra::writeRaster(
   x = rasters,
-  filename = paste0("data/rasters/", names(rasters), ".tif")
+  filename = paste0("data/rasters/", names(rasters), ".tif"),
+  overwrite = TRUE
 )
 
 ```
