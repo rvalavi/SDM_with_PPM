@@ -135,10 +135,11 @@ plot(k_func)
 ## Modelling with Poisson point process
 
 Doing inference on the point pattern is just as easy as setting up a `glm` regression.
-Start by writing the formula, essentially `formula <- "configuration ~ covariates`
+Start by writing the formula, essentially `formula <- "configuration ~ covariates`.
+In the formula, we use `polynom` to allow the user to easily specify whether to use higher order polynomials in the model.
 
 ```{r}
-formula <- paste0("configuration ~ ", paste0(names(covariates), collapse = " + "))
+formula <- paste0("configuration ~ 1 + ", paste0(paste0("polynom(", names(covariates), ", 1)"), collapse = " + "))
 print(formula)
 
 ```

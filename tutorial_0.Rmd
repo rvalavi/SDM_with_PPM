@@ -59,7 +59,7 @@ occ <- spocc::occ(query = "Phascolarctos cinereus",
                   date = c("2010-01-01", "2020-12-31"),
                   gbifopts = list(country = "AU"),
                   has_coords = TRUE, 
-                  limit = 1e4)
+                  limit = 5e3)
 
 occ_df <- spocc::occ2df(occ)
 head(occ_df)
@@ -87,9 +87,9 @@ Citizen science data often have duplicated, unexpected locations (e.g. location 
 
 ```{r}
 australia <- rnaturalearth::ne_countries(country = "Australia",
-                                            scale = 50,
-                                            returnclass = "sf") %>% 
-  sf::st_crop(c(xmin=110, xmax=155, ymin=-45, ymax=-5))
+                                         scale = 50,
+                                         returnclass = "sf") %>% 
+  sf::st_crop(c(xmin = 110, xmax = 155, ymin = -45, ymax = -5))
 
 
 koala_states <- c("South Australia",
@@ -133,7 +133,7 @@ vif
 ```{r}
 # select the list of uncorrelated covariates
 uncorr_list <- vif@results$Variables
-selected_covars <- raster_covars[[uncorr_list]]
+selected_covars <- raster_covars[[as.character(uncorr_list)]]
 
 ```
 
@@ -158,7 +158,7 @@ Make use that all the layers have the same NA data. By taking a `min` or `max` f
 ```{r}
 # function is from the helper_functions.R
 occ_cleaned <- clean_occ(points = occ_cleaned, 
-                         r = rasters[[1]],
+                         r = selected_covars[[1]],
                          crs = 4326,  # the default CRS of GBIF records;
                          remove_outside = TRUE, 
                          remove_dup_dist = 0)
@@ -202,7 +202,7 @@ head(occ_transformed)
 ## Writing data to disk
 
 ```{r}
-write.csv(occurrences, "data/species/occurrences.csv", row.names = FALSE)
+write.csv(occ_transformed, "data/species/occurrences.csv", row.names = FALSE)
 
 ```
 
