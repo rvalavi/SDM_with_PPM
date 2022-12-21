@@ -200,15 +200,17 @@ library(rasterVis)
 output_crs <- 7845
 
 log_pred <- pred %>% 
-  rast() %>% 
+  terra::rast() %>% 
   log()
+
+mycols <- terrain.colors(20, rev = TRUE, alpha = 1)
 
 gplot(log_pred) +
   geom_tile(aes(fill = value)) +
-  scale_fill_gradientn(colours = terrain.colors(20, rev = TRUE), na.value = NA) +
+  scale_fill_gradientn(colours = mycols, na.value = NA) +
   geom_point(data = occurrences, aes(x = X, y = Y), alpha = 0.1, size = 0.3) +
   coord_sf(crs = 7845) +
   theme_bw() +
-  labs(x = "Longitude", y = "Latitude")
+  labs(x = "Longitude", y = "Latitude", fill = "Log intensity")
 
 ```
