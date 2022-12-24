@@ -14,7 +14,7 @@ as.im.RasterLayer <- function(x){ .raster_to_im(x) }
 
 
 
-# crs transform function for xy dataframe
+# CRS transform function for xy dataframe
 crs_transform <- function(xy, # a dataframe with two column: x/longitude, and y/latitude
                           in_crs = 4326,
                           out_crs = 4326){

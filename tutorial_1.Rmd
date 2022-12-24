@@ -120,6 +120,37 @@ points(configuration, pch = 16, cex = 0.2)
 
 Here, we use `K` function to assess the clustering .... there are other functions such as `L` function and `g` function.
 
+```{r}
+###*********** You can ignore this Ian **********######
+library(ggplot2)
+library(sf)
+
+# make a grid with the size ncol = 20
+grids <- sf::st_make_grid(rasters, n = 20, square = FALSE, what = "polygon") %>% 
+  sf::st_sf() %>% 
+  dplyr::mutate(id = 1:nrow(.))
+
+rpoints <- terra::spatSample(rasters[[1]], 
+                  size = 1000,
+                  method= "regular", 
+                  na.rm = TRUE,
+                  as.points = TRUE) %>% 
+  sf::st_as_sf()
+grids <- grids[rpoints,]
+
+# count the numbers in the grid
+occ_sf <- sf::st_as_sf(occurrences, coords = 1:2, crs = 7845)
+grids$n_occ = lengths(st_intersects(grids, occ_sf))
+
+ggplot() +
+  geom_sf(data = grids, aes(fill = log(n_occ)), alpha = 0.7) +
+  viridis::scale_fill_viridis(option = "A")
+
+```
+
+
+
+
 
 ```{r}
 k_func <- spatstat.core::Kinhom(configuration, 
