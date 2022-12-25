@@ -25,6 +25,7 @@ In this document, we show how to fit the simplest point process model namely, Po
 ```{r}
 library(spatstat) # fitting and exploring ppm models
 library(terra) # working with raster data
+library(ggplot2) # plotting
 
 ```
 
@@ -122,7 +123,6 @@ Here, we use `K` function to assess the clustering .... there are other function
 
 ```{r}
 ###*********** You can ignore this Ian **********######
-library(ggplot2)
 library(sf)
 
 # make a grid with the size ncol = 20
@@ -235,7 +235,8 @@ log_pred <- pred %>%
   terra::rast() %>% 
   log()
 
-mycols <- terrain.colors(20, rev = TRUE, alpha = 1)
+# mycols <- terrain.colors(20, rev = TRUE, alpha = 1)
+mycols <- viridis::magma(30)
 
 gplot(log_pred) +
   geom_tile(aes(fill = value)) +

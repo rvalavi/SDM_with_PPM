@@ -123,8 +123,12 @@ plot(raster_covars[[1:6]])
 ## Removing correlated covariates
 
 
+
+We check collinearity among a few pre-selected covariate as these are know to be relevant to koala distribution
+
 ```{r}
-vif <- usdm::vifstep(raster::stack(raster_covars))
+covar_list <- c("bio_4", "bio_7", "bio_5", "bio_12", "bio_15")
+vif <- usdm::vifstep(raster::stack(raster_covars[[covar_list]]))
 vif
 
 ```
