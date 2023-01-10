@@ -12,7 +12,9 @@ always_allow_html: yes
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 80), fig.align="center", message = FALSE, warning = FALSE, fig.height = 5, fig.width = 5)
+knitr::opts_chunk$set(echo = TRUE, fig.align="center", 
+                      message = FALSE, warning = FALSE, 
+                      fig.height = 5, fig.width = 5)
 
 set.seed(1)
 ```
@@ -25,7 +27,6 @@ In this document, we show how to fit the simplest point process model namely, Po
 ```{r}
 library(spatstat) # fitting and exploring ppm models
 library(terra) # working with raster data
-library(ggplot2) # plotting
 
 ```
 
@@ -56,10 +57,10 @@ We read raster covariate here....
 We need to centre and scale covariate to ... 
 
 ```{r}
-files <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE)
 # get the 19 bio-climatic variables
-r <- terra::rast(files)
-rasters <- terra::scale(r, center=TRUE, scale=TRUE)
+rasters <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE) |>
+  terra::rast() |>
+  terra::scale(center = TRUE, scale = TRUE)
 
 # plot a few of them
 plot(rasters[[1]])
@@ -106,115 +107,42 @@ plot(configuration)
 
 ```
 
-## Pre-modelling diagnostics
 
-It is usually a good idea to start by a ``static'' analysis of the point pattern, without yet involving covariates.
-
-```{r}
-summary(configuration)
-
-point_density <- spatstat.core::density.ppp(configuration, sigma = 1e5)
-plot(log(point_density + 1e-11)) # a very small arbitrary value to avoid log of zero
-points(configuration, pch = 16, cex = 0.2)
-
-```
-
-Here, we use `K` function to assess the clustering .... there are other functions such as `L` function and `g` function.
-
-```{r}
-###*********** You can ignore this Ian **********######
-library(sf)
-
-# make a grid with the size ncol = 20
-grids <- sf::st_make_grid(rasters, n = 20, square = FALSE, what = "polygon") %>% 
-  sf::st_sf() %>% 
-  dplyr::mutate(id = 1:nrow(.))
-
-rpoints <- terra::spatSample(rasters[[1]], 
-                  size = 1000,
-                  method= "regular", 
-                  na.rm = TRUE,
-                  as.points = TRUE) %>% 
-  sf::st_as_sf()
-grids <- grids[rpoints,]
-
-# count the numbers in the grid
-occ_sf <- sf::st_as_sf(occurrences, coords = 1:2, crs = 7845)
-grids$n_occ = lengths(st_intersects(grids, occ_sf))
-
-ggplot() +
-  geom_sf(data = grids, aes(fill = log(n_occ)), alpha = 0.7) +
-  viridis::scale_fill_viridis(option = "A")
-
-```
-
-
-
-
-
-```{r}
-k_func <- spatstat.core::Kinhom(configuration, 
-                                correction = "translate", 
-                                normpower = 2)
-
-# make a ggplot for this...
-plot(k_func)
-
-```
-
-
-## Modelling with Poisson point process
+## Model fitting
 
 Doing inference on the point pattern is just as easy as setting up a `glm` regression.
 Start by writing the formula, essentially `formula <- "configuration ~ covariates`.
 In the formula, we use `polynom` to allow the user to easily specify whether to use higher order polynomials in the model.
 
 ```{r}
-formula <- paste0("configuration ~ 1 + ", paste0(paste0("polynom(", names(covariates), ", 1)"), collapse = " + "))
-print(formula)
+formula <- configuration ~ 1 + bio_4 + bio_5 + bio_12 + bio_15
 
 ```
 
+
+The fitting function (analogue of `glm`) is `ppm` and is used as follows.
 
 ```{r}
-# formula <- configuration ~ log(bio_14 + 10)
+fit <- spatstat.core::ppm(formula, covariates = covariates)
 
 ```
 
 
-
-
-The fitting function (analogue of `glm`) is `spatstat::ppm` and is used as follows.
-
-```{r}
-fit <- spatstat.core::ppm(as.formula(formula), covariates = covariates)
-
-```
+## Checking model
 
 The fitted regression is manipulated in the same way as a `glm` fit is, so for example you can have a look at the summary
 
 ```{r}
 summary(fit)
-```
-
-or do an ANOVA.
-
-```{r}
-updated_form <- paste0("configuration ~ ", paste0(names(covariates)[names(covariates) != "bio_15"], collapse = " + "))
-
-updated_fit <- spatstat.core::ppm(as.formula(updated_form), covariates = covariates)
-
-anova(fit, updated_fit)
 
 ```
 
 To look at the predicted intensity, you use the `spatstat.core::predict.ppm` function.
 
+## Prediction maps
+
 ```{r}
 pred <- spatstat.core::predict.ppm(fit, covariates = covariates, dimyx = c(1024, 1024))
-
-plot(log(pred))
-points(configuration, pch = 16, cex = 0.2)
 
 ```
 
@@ -223,27 +151,31 @@ plot(log(rast(pred)))
 points(configuration, pch = 16, cex = 0.2)
 ```
 
+## Post prediction checks
+
+Here, we use `K` function to assess the clustering on the residual of the model. There are other functions such as `L` function and `g` function.
+
+<!-- 
+```{r}
+k_func <- spatstat.core::Kinhom(X = configuration,
+                                lambda = pred,
+                                correction = "translate", 
+                                normpower = 2)
+
+plot(k_func)
+
+```
+ -->
 
 
 ```{r}
-library(rasterVis)
+k_func <- spatstat.core::envelope(Y = fit, 
+                                  fun = spatstat.core::Kinhom,
+                                  correction = "translate", 
+                                  normpower = 2)
 
-# GDA 2020 Lambert CRS
-output_crs <- 7845
-
-log_pred <- pred %>% 
-  terra::rast() %>% 
-  log()
-
-# mycols <- terrain.colors(20, rev = TRUE, alpha = 1)
-mycols <- viridis::magma(30)
-
-gplot(log_pred) +
-  geom_tile(aes(fill = value)) +
-  scale_fill_gradientn(colours = mycols, na.value = NA) +
-  geom_point(data = occurrences, aes(x = X, y = Y), alpha = 0.1, size = 0.3) +
-  coord_sf(crs = 7845) +
-  theme_bw() +
-  labs(x = "Longitude", y = "Latitude", fill = "Log intensity")
+plot(k_func)
 
 ```
+
+

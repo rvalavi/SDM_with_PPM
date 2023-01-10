@@ -70,7 +70,74 @@ Fitting such point processes uses another function, as shown below.
   <!-- ## Comparing the results -->
   
   
-  
+## Pre-modelling diagnostics
+
+It is usually a good idea to start by a `static` analysis of the point pattern, without yet involving covariates.
+
+```{r}
+summary(configuration)
+
+point_density <- spatstat.core::density.ppp(configuration, sigma = 1e5)
+plot(log(point_density + 1e-11)) # a very small arbitrary value to avoid log of zero
+points(configuration, pch = 16, cex = 0.2)
+
+```
+
+
+```{r}
+###*********** You can ignore this Ian **********######
+library(sf)
+
+# make a grid with the size ncol = 20
+grids <- sf::st_make_grid(rasters, n = 20, square = FALSE, what = "polygon") %>% 
+  sf::st_sf() %>% 
+  dplyr::mutate(id = 1:nrow(.))
+
+rpoints <- terra::spatSample(rasters[[1]],
+                  size = 100000,
+                  method= "regular",
+                  na.rm = TRUE,
+                  as.points = TRUE) %>%
+  sf::st_as_sf()
+grids <- grids[rpoints,]
+
+# count the numbers in the grid
+occ_sf <- sf::st_as_sf(occurrences, coords = 1:2, crs = 7845)
+grids$n_occ = lengths(st_intersects(grids, occ_sf))
+
+ggplot() +
+  geom_sf(data = grids, aes(fill = log(n_occ)), alpha = 0.7) +
+  scale_fill_distiller(palette = 1, direction = 1, na.value = "white")
+
+```
+
+
+## Model selection with point process models
+
+
+or do an ANOVA.
+
+
+
+
+```{r}
+# some few updated models with one less covariates
+fit1 <- spatstat.core::ppm(configuration ~ 1 + bio_4 + bio_5 + bio_12, covariates = covariates)
+fit2 <- spatstat.core::ppm(configuration ~ 1 + bio_4 + bio_5 + bio_15, covariates = covariates)
+fit3 <- spatstat.core::ppm(configuration ~ 1 + bio_4 + bio_12 + bio_15, covariates = covariates)
+fit4 <- spatstat.core::ppm(configuration ~ 1 + bio_5 + bio_12 + bio_15, covariates = covariates)
+```
+
+The ANOVA with highest reduction shows the variable with the highest impact on the model.
+
+```{r}
+anova(fit, fit1)
+anova(fit, fit2)
+anova(fit, fit3)
+anova(fit, fit4)
+
+```
+
 
 
 ## Fit Poisson process in Stan (Bayesian framework)

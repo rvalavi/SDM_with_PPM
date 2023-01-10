@@ -29,7 +29,24 @@ crs_transform <- function(xy, # a dataframe with two column: x/longitude, and y/
   return(ppt)
 }
 
-
+# plot prediction
+im_plot <- function(x, log_trans = TRUE, crs = NULL, name = "Log intensity"){
+  require(terra)
+  require(rasterVis)
+  
+  log_pred <- terra::rast(x)
+  if(log_trans) log_pred <- log(log_pred)
+  
+  pa <- rasterVis::gplot(log_pred) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(palette = 6, direction = 1, na.value = NA) +
+    geom_point(data = occurrences, aes(x = X, y = Y), alpha = 0.1, size = 0.3) +
+    switch(!is.null(crs), coord_sf(crs = crs), NULL) +
+    theme_bw() +
+    labs(x = "", y = "", fill = name)
+  
+  return(pa)
+}
 
 # cleaning occurrence points
 clean_occ <- function(
