@@ -1,5 +1,5 @@
 ---
-title: 'Tutorial 2: point process advanced topics'
+title: "Spatial point process modelling"
 author: "Ian Flint and Roozbeh Valavi"
 date: "`r Sys.Date()`"
 output: 
@@ -12,12 +12,17 @@ always_allow_html: yes
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 80), fig.align="center", message = FALSE, warning = FALSE, fig.height = 5, fig.width = 5)
+knitr::opts_chunk$set(echo = TRUE, fig.align="center", 
+                      message = FALSE, warning = FALSE, 
+                      fig.height = 5, fig.width = 5)
 
 set.seed(1)
 ```
 
+In this document, we show how to fit the simplest point process model namely, Poisson process model.
 
+
+# Simplest point process model
 
 ## Setup and R libraries
 
@@ -28,6 +33,161 @@ library(terra) # working with raster data
 ```
 
 
+```{r}
+source("R/helper_functions.R")
+
+```
+
+
+## Species data
+
+Reading species data....
+
+Note that the spatial coordinate system is a metric CRS...
+
+```{r}
+occurrences <- read.csv("data/species/occurrences.csv")
+head(occurrences)
+
+```
+
+
+## Environmental data
+
+We read raster covariate here....
+
+We need to centre and scale covariate to ... 
+
+```{r}
+# get the 19 bio-climatic variables
+rasters <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE) |>
+  terra::rast() |>
+  terra::scale(center = TRUE, scale = TRUE)
+
+# plot a few of them
+plot(rasters[[1]])
+points(occurrences)
+
+```
+
+
+## Converting everything to `spatstat` objects
+
+Covariates are usually specified in their image objects `spatstat::im`.
+Internally, this is represented as a large pixel matrix, so conversion from rasters and other image objects is usually straightforward.
+In order to convert to the proper format, the `maptools` helper function is useful.
+
+
+```{r}
+covariates <- lapply(rasters, spatstat.geom::as.im)
+names(covariates) <- names(rasters)
+
+plot(covariates[[1]], main = names(covariates)[1])
+
+```
+
+
+Next, when working with `spatstat` you need an observation window (region).
+It is a region in which the points are assumed to be drawn from. 
+The probability of finding locations outside of this region is assumed to be zero.
+Common ways to construct an `spatstat::owin` is to either take a fixed rectangle, i.e. `window <- owin(c(0, 100), c(0, 100))`, or to use an existing covariate or raster to construct the window.
+
+```{r}
+window <- spatstat.geom::as.owin(covariates[[1]])
+plot(window)
+
+```
+
+
+Occurrences (or presence points) are `spatstat::ppp` objects, and basically you need a vector of x-values, a vector of y-values, and the observation window.
+
+```{r}
+configuration <- spatstat.geom::ppp(x = occurrences$X, 
+                                    y = occurrences$Y,
+                                    window = window)
+plot(configuration)
+
+```
+
+
+## Model fitting
+
+Doing inference on the point pattern is just as easy as setting up a `glm` regression.
+Start by writing the formula, essentially `formula <- "configuration ~ covariates`.
+In the formula, we use `polynom` to allow the user to easily specify whether to use higher order polynomials in the model.
+
+```{r}
+formula <- configuration ~ 1 + bio_4 + bio_5 + bio_12 + bio_15
+
+```
+
+
+The fitting function (analogue of `glm`) is `ppm` and is used as follows.
+
+```{r}
+fit <- spatstat.core::ppm(formula, covariates = covariates)
+
+```
+
+
+## Checking model
+
+The fitted regression is manipulated in the same way as a `glm` fit is, so for example you can have a look at the summary
+
+```{r}
+summary(fit)
+
+```
+
+To look at the predicted intensity, you use the `spatstat.core::predict.ppm` function.
+
+## Prediction maps
+
+```{r}
+pred <- spatstat.core::predict.ppm(fit, covariates = covariates, dimyx = c(1024, 1024))
+
+```
+
+```{r}
+plot(log(rast(pred)))
+points(configuration, pch = 16, cex = 0.2)
+```
+
+
+# Point process advanced topics
+
+Requirements from the previous sections to run this section:
+- `configuration` object form section x.1
+- `fit` object from sections x.3
+
+In this section we show some more ...
+
+## Post prediction checks
+
+Here, we use `K` function to assess the clustering on the residual of the model. There are other functions such as `L` function and `g` function.
+
+<!-- 
+```{r}
+k_func <- spatstat.core::Kinhom(X = configuration,
+                                lambda = pred,
+                                correction = "translate", 
+                                normpower = 2)
+
+plot(k_func)
+
+```
+ -->
+
+
+```{r}
+k_func <- spatstat.core::envelope(Y = fit, 
+                                  fun = spatstat.core::Kinhom,
+                                  correction = "translate", 
+                                  normpower = 2)
+
+plot(k_func)
+
+```
 
 ## Cox process
 
@@ -169,4 +329,20 @@ generated quantities{
 }'
 
 ```
+
+
+
+
+
+
+# Point process model evaluation
+
+Requirements from the previous sections to run this section:
+- `fit` object form section x.1
+- `covars` object from sections x.3
+
+
+
+
+
 
