@@ -188,6 +188,8 @@ plot(k_func)
 
 ```
 
+There are clear and unambiguous signs of clustering at all distances, suggesting modelling with Cox processes.
+
 ## Cox process
 
 Spatstat can handle many different types of correlation structures between individuals of the species.
