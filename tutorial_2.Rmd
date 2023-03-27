@@ -60,9 +60,8 @@ We need to centre and scale covariate to ...
 
 ```{r}
 # get the 19 bio-climatic variables
-rasters <- list.files("data/rasters/", pattern = ".tif$", full.names = TRUE) |>
-  terra::rast() |>
-  terra::scale(center = TRUE, scale = TRUE)
+rasters <- terra::scale(terra::rast(list.files("data/rasters/", pattern = ".tif$", full.names = TRUE)),
+                        center = TRUE, scale = TRUE)
 
 # plot a few of them
 plot(rasters[[1]])
