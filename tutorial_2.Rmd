@@ -180,9 +180,9 @@ plot(k_func)
 
 ```{r}
 k_func <- spatstat.core::envelope(Y = fit, 
-                                  fun = spatstat.core::Kinhom,
+                                  fun = spatstat.core::Kinhom, # Use the inhomogeneous K function
                                   correction = "translate", 
-                                  normpower = 2)
+                                  normpower = 2) # Recommended option
 
 plot(k_func)
 
@@ -197,38 +197,55 @@ You would usually supply an `interaction` parameter to `spatstat.core::ppm`.
 However, initial analysis suggested attraction between the individuals, in which case a doubly-stochastic (Cox) point process is more appropriate.
 Fitting such point processes uses another function, as shown below.
 
-<!-- ```{r} -->
-  <!-- fit_cox <- spatstat::kppm(as.formula(formula), covariates = covariates, clusters = "LGCP") -->
-  <!-- summary(fit_cox) -->
-  <!-- ``` -->
+```{r}
+fit_cox <- kppm(formula, covariates = covariates, clusters = "LGCP")
+summary(fit_cox)
+
+```
+
+Simulating a Cox point process essentially works as in the Poisson setting.
+
+```{r}
+draw_cox <- simulate.kppm(fit_cox)
+plot(draw_cox)
+
+```
+
+Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`.
+A lot of these functions rely on multiple simulations of the point process.
+
+```{r}
+dclf.test(fit, nsim = 20)
+dclf.test(fit_cox, nsim = 20)
+
+k_func_cox <- spatstat.core::envelope(Y = fit_cox, 
+                                      fun = spatstat.core::Kinhom, # Use the inhomogeneous K function
+                                      correction = "translate", 
+                                      nsim = 20,
+                                      normpower = 2) # Recommended option
+
+plot(k_func_cox)
+
+```
   
-  <!-- A nice way to appreciate the difference in the underlying model is to draw from the fitted distribution. -->
-  <!-- This can easily be done for the fitted Poisson point process. -->
   
-  <!-- ```{r} -->
-  <!-- draw_ppp <- spatstat::simulate.ppm(fit) -->
-  <!-- plot(draw_ppp) -->
-  <!-- ``` -->
-  
-  <!-- Drawing from a Cox point process requires you to use another library, but it essentially works in the same way. -->
-  
-  <!-- ```{r} -->
-  <!-- library(RandomFields) -->
-  <!-- library(RandomFieldsUtils) -->
-  
-  <!-- draw_cox <- spatstat::simulate.kppm(fit_cox) -->
-  <!-- plot(draw_cox) -->
-  <!-- ``` -->
-  
-  <!-- Making goodness-of-fit tests is straightforward, we refer in particular to the functions `spatstat::quadrat.test`, `spatstat::cdf.test`, `spatstat::dclf.test` and `spatstat::mad.test`. -->
-  <!-- A lot of these functions rely on multiple simulations of the point process, which is going to be exeedingly slow for the Cox process. -->
-  <!-- Instead, we show what a goodness-of-fit test looks like with a simple fit with a Poisson point process. -->
-  
-  <!-- ```{r} -->
-  <!-- dclf.test(fit) -->
-  <!-- ``` -->
-  
-  <!-- ## Comparing the results -->
+## Other diagnostics
+
+```{r}
+quadrat.test(fit)
+cdf.test(fit, covariate = "x")
+
+ss <- simulate(fit, nsim = 5)
+plot(ss)
+
+plot(log(raster::raster(density(ss, sigma = 90000)[[1]])))
+```
+
+How to validate models? We can try AUC
+
+```{r}
+auc(configuration, pred)
+```
   
   
 ## Pre-modelling diagnostics
